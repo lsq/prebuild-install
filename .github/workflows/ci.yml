@@ -1,0 +1,106 @@
+name: test-release-publish
+
+on:
+  - push
+  - pull_request
+  - workflow_dispatch
+
+# permissions:
+  # contents: read
+
+jobs:
+  build:
+    permissions:
+      contents: write
+      id-token: write # Required for OIDC
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24]
+        # os: [windows-latest, macos-11, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest]
+        arch: [x64]
+        include:
+          - os: windows-latest
+            arch: mingw
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        if: matrix.arch == 'mingw'
+        with:
+          msystem: UCRT64
+          install: jq base-devel binutils git mingw-w64-ucrt-x86_64-toolchain
+          pacboy: >-
+            ca-certificates
+            yarn:p
+            python:p
+          update: true
+          path-type: inherit
+          location: C:\
+          release: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        if: matrix.arch != 'mingw'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Use Node.js ${{ matrix.node }}
+        if: matrix.arch != 'mingw'
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          architecture: ${{ matrix.arch }}
+      - name: Install (msys2)
+        shell: msys2 {0}
+        if: matrix.arch == 'mingw'
+        run: |
+          which npm && which bash | cygpath -w -f -
+          npm install
+          npm test
+          npm pack
+          latest_version_published=$(sed -n 's/^\s\+\"version\": \"\(.*\)\",$/\1/p' package.json)
+          echo "tagName=v${latest_version_published}" >> $GITHUB_ENV
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install
+        if: matrix.arch != 'mingw'
+        run: npm install
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+      - name: Test
+        if: matrix.arch != 'mingw'
+        run: npm test
+      - name: Upload to Release
+        if: ${{ startsWith(github.ref_name, 'v') && env.tagName != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./*.tgz
+          tag_name: ${{ env.tagName }}
+          name: ${{ env.tagName }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish
+        if: ${{ startsWith(github.ref_name, 'v') && env.tagName != '' }}
+        shell: msys2 {0}
+        run: |
+          if git --no-pager log -1 --pretty=%B | grep "^v[0-9]\+\.[0-9]\+\.[0-9]\+$";
+          then
+            echo "Publishing regular release"
+            npm publish *.tgz --access public
+          elif git --no-pager log -1 --pretty=%B | grep "^v[0-9]\+\.[0-9]\+\.[0-9]\+-[0-9]\+$";
+          then
+            echo "Publishing beta release"
+            npm publish --tag *.tgz beta --access public
+          else
+            echo "Not a release, skipping publish"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+

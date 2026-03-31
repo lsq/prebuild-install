@@ -28,6 +28,7 @@ module.exports = function (rc, env) {
     warn: logAtLevel('warn'),
     http: logAtLevel('http'),
     info: logAtLevel('info'),
+    verbose: logAtLevel('verbose'),
     level
   }
 }

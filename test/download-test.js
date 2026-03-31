@@ -13,6 +13,15 @@ const unpacked = path.join(build, 'Release/leveldown.node')
 
 test('downloading from GitHub, not cached', function (t) {
   t.plan(10)
+
+  const _createWriteStream = fs.createWriteStream
+  const _createReadStream = fs.createReadStream
+  const _request = https.request
+  t.teardown(function () {
+    fs.createWriteStream = _createWriteStream
+    fs.createReadStream = _createReadStream
+    https.request = _request
+  })
   rm.sync(build)
   rm.sync(util.prebuildCache())
 
@@ -22,7 +31,6 @@ test('downloading from GitHub, not cached', function (t) {
   let tempFile
 
   let writeStreamCount = 0
-  const _createWriteStream = fs.createWriteStream
   fs.createWriteStream = function (path) {
     if (writeStreamCount++ === 0) {
       tempFile = path
@@ -33,13 +41,11 @@ test('downloading from GitHub, not cached', function (t) {
     return _createWriteStream(path)
   }
 
-  const _createReadStream = fs.createReadStream
   fs.createReadStream = function (path) {
     t.equal(path, cachedPrebuild, 'createReadStream called for cachedPrebuild')
     return _createReadStream(path)
   }
 
-  const _request = https.request
   https.request = function (opts) {
     https.request = _request
     t.equal('https://' + opts.hostname + opts.path, downloadUrl, 'correct url')
@@ -54,26 +60,32 @@ test('downloading from GitHub, not cached', function (t) {
     t.equal(fs.existsSync(cachedPrebuild), true, 'prebuild was cached')
     t.equal(fs.existsSync(unpacked), true, unpacked + ' should exist')
     t.equal(fs.existsSync(tempFile), false, 'temp file should be gone')
-    fs.createWriteStream = _createWriteStream
-    fs.createReadStream = _createReadStream
+    t.end()
   })
 })
 
 test('cached prebuild', function (t) {
   t.plan(5)
+
+  const _createWriteStream = fs.createWriteStream
+  const _createReadStream = fs.createReadStream
+  const _request = http.request
+  t.teardown(function () {
+    fs.createWriteStream = _createWriteStream
+    fs.createReadStream = _createReadStream
+    http.request = _request
+  })
   rm.sync(build)
 
   const opts = getOpts()
   const downloadUrl = util.getDownloadUrl(opts)
   const cachedPrebuild = util.cachedPrebuild(downloadUrl)
 
-  const _createWriteStream = fs.createWriteStream
   fs.createWriteStream = function (path) {
     t.ok(/\.node$/i.test(path), 'this is the unpacked file')
     return _createWriteStream(path)
   }
 
-  const _createReadStream = fs.createReadStream
   fs.createReadStream = function (path) {
     t.equal(path, cachedPrebuild, 'createReadStream called for cachedPrebuild')
     return _createReadStream(path)
@@ -84,13 +96,21 @@ test('cached prebuild', function (t) {
   download(downloadUrl, opts, function (err) {
     t.error(err, 'no error')
     t.equal(fs.existsSync(unpacked), true, unpacked + ' should exist')
-    fs.createReadStream = _createReadStream
-    fs.createWriteStream = _createWriteStream
+    t.end()
   })
 })
 
 test('local prebuild', function (t) {
   t.plan(6)
+
+  const _createWriteStream = fs.createWriteStream
+  const _createReadStream = fs.createReadStream
+  const _request = http.request
+  t.teardown(function () {
+    fs.createWriteStream = _createWriteStream
+    fs.createReadStream = _createReadStream
+    http.request = _request
+  })
   rm.sync(build)
 
   const opts = getOpts()
@@ -103,13 +123,11 @@ test('local prebuild', function (t) {
   // fs.copyFileSync() not available before Node 8.5
   fs.writeFileSync(localPrebuild, fs.readFileSync(cachedPrebuild))
 
-  const _createWriteStream = fs.createWriteStream
   fs.createWriteStream = function (path) {
     t.ok(/\.node$/i.test(path), 'this is the unpacked file')
     return _createWriteStream(path)
   }
 
-  const _createReadStream = fs.createReadStream
   fs.createReadStream = function (path) {
     t.equal(path, localPrebuild, 'createReadStream called for localPrebuild')
     return _createReadStream(path)
@@ -120,14 +138,22 @@ test('local prebuild', function (t) {
   download(downloadUrl, opts, function (err) {
     t.error(err, 'no error')
     t.equal(fs.existsSync(unpacked), true, unpacked + ' should exist')
-    fs.createReadStream = _createReadStream
-    fs.createWriteStream = _createWriteStream
+    t.end()
     rm.sync(localPrebuild)
   })
 })
 
 test('non existing host should fail with no dangling temp file', function (t) {
   t.plan(3)
+
+  const _createWriteStream = fs.createWriteStream
+  const _createReadStream = fs.createReadStream
+  const _request = https.request
+  t.teardown(function () {
+    fs.createWriteStream = _createWriteStream
+    fs.createReadStream = _createReadStream
+    https.request = _request
+  })
 
   const opts = getOpts()
   opts.pkg.binary = {
@@ -137,7 +163,6 @@ test('non existing host should fail with no dangling temp file', function (t) {
   const downloadUrl = util.getDownloadUrl(opts)
   const cachedPrebuild = util.cachedPrebuild(downloadUrl)
 
-  const _createWriteStream = fs.createWriteStream
   fs.createWriteStream = function (path) {
     t.ok(false, 'no temporary file should be written')
     return _createWriteStream(path)
@@ -148,7 +173,7 @@ test('non existing host should fail with no dangling temp file', function (t) {
   download(downloadUrl, opts, function (err) {
     t.ok(err, 'should error')
     t.equal(fs.existsSync(cachedPrebuild), false, 'nothing cached')
-    fs.createWriteStream = _createWriteStream
+    t.end()
   })
 })
 
@@ -182,6 +207,15 @@ test('existing host but invalid url should fail', function (t) {
 test('error during download should fail with no dangling temp file', function (t) {
   t.plan(7)
 
+  const _createWriteStream = fs.createWriteStream
+  const _createReadStream = fs.createReadStream
+  const _request = http.request
+  t.teardown(function () {
+    fs.createWriteStream = _createWriteStream
+    fs.createReadStream = _createReadStream
+    http.request = _request
+  })
+
   const downloadError = new Error('something went wrong during download')
 
   const opts = getOpts()
@@ -195,14 +229,12 @@ test('error during download should fail with no dangling temp file', function (t
   const cachedPrebuild = util.cachedPrebuild(downloadUrl)
   let tempFile
 
-  const _createWriteStream = fs.createWriteStream
   fs.createWriteStream = function (path) {
     tempFile = path
     t.ok(/\.tmp$/i.test(path), 'this is the temporary file')
     return _createWriteStream(path)
   }
 
-  const _request = http.request
   http.request = function (opts) {
     http.request = _request
     t.equal('http://' + opts.hostname + ':' + opts.port + opts.path, downloadUrl, 'correct url')
@@ -226,7 +258,6 @@ test('error during download should fail with no dangling temp file', function (t
       t.equal(fs.existsSync(tempFile), false, 'no dangling temp file')
       t.equal(fs.existsSync(cachedPrebuild), false, 'nothing cached')
       t.end()
-      fs.createWriteStream = _createWriteStream
       server.unref()
     })
   })

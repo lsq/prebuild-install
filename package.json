@@ -1,9 +1,24 @@
 {
-  "name": "prebuild-install",
+  "name": "@bratel/prebuild-install",
   "version": "7.1.3",
-  "description": "A command line tool to easily install prebuilt binaries for multiple version of node/iojs on a specific platform",
-  "scripts": {
-    "test": "standard && hallmark && tape test/*-test.js",
+  "description": "A command line tool to easily install prebuilt binaries for multiple version of node/iojs on a specific platform, build tool and bindings loader for node-gyp that supports prebuilds",
+  "main": "index.js",
+  "imports": {
+    "fs": {
+      "bare": "builtin:fs",
+      "default": "fs"
+    },
+    "path": {
+      "bare": "builtin:path",
+      "default": "path"
+    },
+    "os": {
+      "bare": "builtin:os",
+      "default": "os"
+    }
+  },
+ "scripts": {
+    "test": "standard && hallmark && tape test/*-test.js -v",
     "hallmark": "hallmark --fix"
   },
   "keywords": [
@@ -25,23 +40,31 @@
     "minimist": "^1.2.3",
     "mkdirp-classic": "^0.5.3",
     "napi-build-utils": "^2.0.0",
-    "node-abi": "^3.3.0",
+    "node-abi": "^3.89.0",
+    "node-gyp": "^11.5.0",
+    "node-ninja": "^1.0.2",
+    "nw-gyp": "^3.6.6",
     "pump": "^3.0.0",
     "rc": "^1.2.7",
     "simple-get": "^4.0.0",
-    "tar-fs": "^2.0.0",
+    "tar-fs": "^3.0.0",
     "tunnel-agent": "^0.6.0"
   },
   "devDependencies": {
+    "array-shuffle": "^1.0.1",
     "a-native-module": "^1.0.0",
     "hallmark": "^4.0.0",
-    "nock": "^10.0.6",
+    "nock": "^14.0.11",
     "rimraf": "^2.5.2",
-    "standard": "^16.0.4",
+    "standard": "^17.1.2",
     "tape": "^5.3.1",
     "tempy": "0.2.1"
   },
-  "bin": "./bin.js",
+  "bin": {
+    "prebuild-install":"./bin.js",
+    "node-gyp-build-optional": "./optional.js",
+    "node-gyp-build-test": "./build-test.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/prebuild/prebuild-install.git"
@@ -63,5 +86,10 @@
   "homepage": "https://github.com/prebuild/prebuild-install",
   "engines": {
     "node": ">=10"
+  },
+  "hallmark": {
+      "ignore": [
+          "README.md"
+      ]
   }
 }

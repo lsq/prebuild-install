@@ -8,9 +8,9 @@ function applyProxy (reqOpts, opts) {
   const proxy = opts['https-proxy'] || opts.proxy
 
   if (proxy) {
-    // eslint-disable-next-line node/no-deprecated-api
+    // eslint-disable-next-line n/no-deprecated-api
     const parsedDownloadUrl = url.parse(reqOpts.url)
-    // eslint-disable-next-line node/no-deprecated-api
+    // eslint-disable-next-line n/no-deprecated-api
     const parsedProxy = url.parse(proxy)
     const uriProtocol = (parsedDownloadUrl.protocol === 'https:' ? 'https' : 'http')
     const proxyProtocol = (parsedProxy.protocol === 'https:' ? 'Https' : 'Http')

@@ -3,11 +3,14 @@ const minimist = require('minimist')
 const getAbi = require('node-abi').getAbi
 const detectLibc = require('detect-libc')
 const napi = require('napi-build-utils')
+const os = require('os')
+const osType = os.type()
+const libcVer = osType.startsWith('MINGW32_NT') ? 'gnu' : ''
 
 const env = process.env
 
 const libc = env.LIBC || process.env.npm_config_libc ||
-  (detectLibc.isNonGlibcLinuxSync() && detectLibc.familySync()) || ''
+  (detectLibc.isNonGlibcLinuxSync() && detectLibc.familySync()) || libcVer
 
 // Get the configuration
 module.exports = function (pkg) {
@@ -18,7 +21,7 @@ module.exports = function (pkg) {
     target: pkgConf.target || env.npm_config_target || process.versions.node,
     runtime: pkgConf.runtime || env.npm_config_runtime || 'node',
     arch: pkgConf.arch || env.npm_config_arch || process.arch,
-    libc: libc,
+    libc,
     platform: env.npm_config_platform || process.platform,
     debug: env.npm_config_debug === 'true',
     force: false,
@@ -53,7 +56,9 @@ module.exports = function (pkg) {
 
   rc.abi = napi.isNapiRuntime(rc.runtime) ? rc.target : getAbi(rc.target, rc.runtime)
 
-  rc.libc = rc.platform !== 'linux' || rc.libc === detectLibc.GLIBC ? '' : rc.libc
+  // console.log(`rc.libc: ${rc.libc}`)
+  // console.log(`detectLibc: ${detectLibc.GLIBC}`)
+  rc.libc = ((rc.platform === 'linux' && rc.libc !== detectLibc.GLIBC) || (rc.platform === 'win32' && osType.startsWith('MINGW32_NT'))) ? rc.libc : ''
 
   return rc
 }

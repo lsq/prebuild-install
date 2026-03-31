@@ -56,6 +56,7 @@ function downloadPrebuild (downloadUrl, opts, cb) {
           if (res.statusCode !== 200) return onerror()
           mkdirp(util.prebuildCache(), function () {
             log.info('downloading to @', tempFile)
+            // console.log('downloading to @', tempFile)
             pump(res, fs.createWriteStream(tempFile), function (err) {
               if (err) return onerror(err)
               fs.rename(tempFile, cachedPrebuild, function (err) {

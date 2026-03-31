@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
 const path = require('path')
+const proc = require('child_process')
 const fs = require('fs')
 const napi = require('napi-build-utils')
-
 const pkg = require(path.resolve('package.json'))
 const rc = require('./rc')(pkg)
 const log = require('./log')(rc, process.env)
 const download = require('./download')
 const asset = require('./asset')
 const util = require('./util')
+const preinstall = require('./prebuildify')
 
 const prebuildClientVersion = require('./package.json').version
 if (rc.version) {
@@ -35,9 +36,13 @@ if (rc.help) {
   process.exit(0)
 }
 
-log.info('begin', 'Prebuild-install version', prebuildClientVersion)
+const opts = Object.assign({}, rc, {
+  pkg,
+  log,
+  cwd: '.'
+})
 
-const opts = Object.assign({}, rc, { pkg: pkg, log: log })
+log.info('begin', 'Prebuild-install version', prebuildClientVersion)
 
 if (napi.isNapiRuntime(rc.runtime)) napi.logUnsupportedVersion(rc.target, log)
 
@@ -51,16 +56,25 @@ if (opts.force) {
   process.exit(1)
 } else if (opts.buildFromSource) {
   log.info('install', '--build-from-source specified, not attempting download.')
-  process.exit(1)
+  preinstall(opts, function (err) {
+    if (err) {
+      console.error(err)
+      process.exit(1)
+    }
+    // process.exit(0)
+  })
 }
 
 const startDownload = function (downloadUrl) {
   download(downloadUrl, opts, function (err) {
     if (err) {
       log.warn('install', err.message)
-      return process.exit(1)
+      // return process.exit(1)
+    } else {
+      log.info('install', 'Successfully installed prebuilt binary!')
     }
-    log.info('install', 'Successfully installed prebuilt binary!')
+
+    runFallback()
   })
 }
 
@@ -68,11 +82,31 @@ if (opts.token) {
   asset(opts, function (err, assetId) {
     if (err) {
       log.warn('install', err.message)
-      return process.exit(1)
+      // return process.exit(1)
+      return runFallback()
     }
 
     startDownload(util.getAssetUrl(opts, assetId))
   })
 } else {
   startDownload(util.getDownloadUrl(opts))
+}
+
+function runFallback () {
+  proc.exec('node-gyp-build-test', function (err, stdout, stderr) {
+    if (err) {
+      // if (verbose()) console.error(stderr)
+      if (opts.verbose) console.error(stderr)
+      preinstall(opts, function (err) {
+        if (err) {
+          console.error(err)
+          process.exit(1)
+        }
+        log.info('build binary successed!')
+        // process.exit(0)
+      })
+    } else {
+      log.info('build binary successed!')
+    }
+  })
 }

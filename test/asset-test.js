@@ -34,8 +34,7 @@ nock('https://api.github.com:443', {
   .persist()
   .get(function (uri) {
     return /\/repos\/ralphtheninja\/a-native-module\/releases\/assets\/\d*/g.test(uri)
-  })
-  .reply(302, undefined, {
+  }).reply(302, undefined, {
     Location: function (req, res, body) {
       const assetId = req.path
         .replace('/repos/ralphtheninja/a-native-module/releases/assets/', '')
@@ -52,6 +51,15 @@ nock('https://api.github.com:443', {
 
 test('downloading from GitHub with token', function (t) {
   t.plan(11)
+
+  const _createWriteStream = fs.createWriteStream
+  const _createReadStream = fs.createReadStream
+  const _request = https.request
+  t.teardown(function () {
+    fs.createWriteStream = _createWriteStream
+    fs.createReadStream = _createReadStream
+    https.request = _request
+  })
   rm.sync(build)
   rm.sync(util.prebuildCache())
 
@@ -64,7 +72,6 @@ test('downloading from GitHub with token', function (t) {
     let tempFile
 
     let writeStreamCount = 0
-    const _createWriteStream = fs.createWriteStream
     fs.createWriteStream = function (path) {
       if (writeStreamCount++ === 0) {
         tempFile = path
@@ -75,29 +82,58 @@ test('downloading from GitHub with token', function (t) {
       return _createWriteStream(path)
     }
 
-    const _createReadStream = fs.createReadStream
     fs.createReadStream = function (path) {
       t.equal(path, cachedPrebuild, 'createReadStream called for cachedPrebuild')
       return _createReadStream(path)
     }
 
-    const _request = https.request
+    let requestCount = 0
     https.request = function (req) {
-      https.request = _request
-      t.equal('https://' + req.hostname + req.path, downloadUrl, 'correct url')
-      return _request.apply(https, arguments)
+      requestCount++
+      if (requestCount === 1) {
+      // https.request = _request
+        t.equal('https://' + req.hostname + req.path, downloadUrl, 'correct url')
+      }
+      // return _request.apply(https, arguments)
+      const rq = _request.apply(https, arguments)
+      // 👇 添加调试：监听 request 错误
+      rq.on('error', (err) => {
+        console.error('[DEBUG] Request error:', err.message, '| Code:', err.code)
+      })
+
+      // 👇 添加调试：如果 response 有 error 也捕获
+      const originalOn = rq.on
+      rq.on = function (event, listener) {
+        if (event === 'response') {
+          const wrappedListener = function (res) {
+            res.on('error', (err) => {
+              console.error('[DEBUG] Response error:', err.message)
+            })
+            listener(res)
+          }
+          return originalOn.call(this, event, wrappedListener)
+        }
+        return originalOn.call(this, event, listener)
+      }
+
+      return rq
     }
 
     t.equal(fs.existsSync(build), false, 'no build folder')
 
+    // console.log(`opts: ${JSON.stringify(opts)}`)
+    // console.log(`downloadUrl: ${downloadUrl}`)
     download(downloadUrl, opts, function (err) {
+      if (err) {
+        console.error('[FINAL ERROR]', err)
+        console.error('[STACK]', err.stack)
+      }
       t.error(err, 'no error')
       t.equal(fs.existsSync(util.prebuildCache()), true, 'prebuildCache created')
       t.equal(fs.existsSync(cachedPrebuild), true, 'prebuild was cached')
       t.equal(fs.existsSync(unpacked), true, unpacked + ' should exist')
       t.equal(fs.existsSync(tempFile), false, 'temp file should be gone')
-      fs.createWriteStream = _createWriteStream
-      fs.createReadStream = _createReadStream
+      t.end()
     })
   })
 })
@@ -117,6 +153,7 @@ test('non existing version should fail asset request', function (t) {
     const cachedPrebuild = util.cachedPrebuild(downloadUrl)
 
     t.equal(fs.existsSync(cachedPrebuild), false, 'nothing cached')
+    t.end()
   })
 })
 

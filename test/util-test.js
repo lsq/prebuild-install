@@ -80,8 +80,9 @@ test('urlTemplate() returns different templates based on pkg and rc', function (
     download: true
   }
   delete o7.binary
-  let envProperty = 'npm_config_' + o7.pkg.name.replace(/[^a-zA-Z0-9]/g, '_') + '_binary_host'
+  let envProperty = 'npm_config_' + (o7.pkg.name.replace(/[^a-zA-Z0-9]/g, '_')).replace(/^_/, '') + '_binary_host'
   process.env[envProperty] = 'http://overriden-url.com/overriden-path'
+  // console.log(`envProperty[${envProperty}]: ${process.env[envProperty]}`)
   const t7 = util.urlTemplate(o7)
   delete process.env[envProperty]
   t.equal(t7, 'http://overriden-url.com/overriden-path/{tag_prefix}{version}/{name}-v{version}-{runtime}-v{abi}-{platform}{libc}-{arch}.tar.gz', '--download with host mirror override')
@@ -97,6 +98,7 @@ test('urlTemplate() returns different templates based on pkg and rc', function (
   }
   envProperty += '_mirror'
   process.env[envProperty] = 'http://overriden-url.com/overriden-path'
+  // console.log(`envProperty[${envProperty}]: ${process.env[envProperty]}`)
   const t8 = util.urlTemplate(o8)
   delete process.env[envProperty]
   t.equal(t8, 'http://overriden-url.com/overriden-path/{tag_prefix}{version}/{name}-v{version}-{runtime}-v{abi}-{platform}{libc}-{arch}.tar.gz', '--download with binary defined and host mirror override')
