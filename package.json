@@ -1,6 +1,6 @@
 {
   "name": "@bratel/prebuild-install",
-  "version": "8.0.0",
+  "version": "8.0.1",
   "description": "A command line tool to easily install prebuilt binaries for multiple version of node/iojs on a specific platform, build tool and bindings loader for node-gyp that supports prebuilds",
   "main": "index.js",
   "imports": {

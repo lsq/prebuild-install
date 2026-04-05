@@ -51,7 +51,7 @@ function preinstall (rc, cb) {
     rc.out = rc.path
   }
 
-  const buildFolder = path.join(rc.out, 'prebuilds', rc.platform + '-' + rc.arch + (rc.libc ? ('-' + rc.libc) : ''))
+  const buildFolder = path.join(rc.out, 'prebuilds', rc.platform + '-' + rc.arch + ((typeof rc.libc === 'string' && rc.libc.trim() !== '') ? ('-' + rc.libc) : ''))
   const opts = Object.assign({}, rc, {
     buildFolder,
     shell: process.env.PREBUILD_SHELL || shell(),
